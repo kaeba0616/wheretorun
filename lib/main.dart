@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wheretorun/home_screen.dart';
 
 void main() async {
@@ -9,7 +10,11 @@ void main() async {
 
   await NaverMapSdk.instance
       .initialize(clientId: dotenv.env['NAVER_MAP_CLIENT_ID']);
-  runApp(const MyApp());
+  runApp(
+    const ProviderScope(
+      child: MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
