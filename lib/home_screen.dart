@@ -1,11 +1,10 @@
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:wheretorun/features/naviagtion/models/route_data.dart';
 import 'package:wheretorun/features/naviagtion/view_models/route_view_model.dart';
-
-enum ReadyState { currentPosition, controller }
+import 'package:wheretorun/utils/position_utils.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -15,64 +14,41 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  late NLatLng _currentPosition;
-  late NaverMapController _controller;
+  NLatLng? _initialPosition;
   NLatLng? _destination;
-
-  final Map<ReadyState, bool> _isReady = {
-    ReadyState.currentPosition: false,
-    ReadyState.controller: false,
-  };
-
-  void _setReady(ReadyState state, bool value) {
-    setState(() {
-      _isReady[state] = value;
-    });
-  }
+  late NaverMapController _mapController;
+  late final AudioPlayer _audioPlayer;
 
   @override
   void initState() {
     super.initState();
-    _determinePosition();
+    _initPosition();
+    _initAudioPlayer();
   }
 
-  Future<void> _determinePosition() async {
-    await _requestPermission();
-    try {
-      final position = await Geolocator.getCurrentPosition();
-      setState(() {
-        _currentPosition = NLatLng(position.latitude, position.longitude);
-      });
-      _setReady(ReadyState.currentPosition, true);
-    } catch (e) {
-      print(e);
-    }
+  @override
+  void dispose() {
+    _audioPlayer.dispose();
+    _mapController.dispose();
+    super.dispose();
   }
 
-  Future<void> _requestPermission() async {
-    bool serviceEnabled;
-    LocationPermission permission;
+  void _initPosition() async {
+    await checkLocationPermission();
+    final position = await getCurrentPosition();
+    setState(() {
+      _initialPosition = position;
+    });
+  }
 
-    serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      return Future.error('Location services are disabled.');
-    }
-    permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        return Future.error('Location permissions are denied');
-      }
-    }
-    if (permission == LocationPermission.deniedForever) {
-      return Future.error(
-          'Location permissions are permanently denied, we cannot request permissions.');
-    }
+  void _initAudioPlayer() {
+    _audioPlayer = AudioPlayer();
+    _audioPlayer.setSource(AssetSource("sounds/beep.mp3"));
+    _audioPlayer.setBalance(-1);
   }
 
   void _onMapReady(NaverMapController controller) {
-    _controller = controller;
-    _setReady(ReadyState.controller, true);
+    _mapController = controller;
     final NLocationOverlay locationOverlay = controller.getLocationOverlay();
     locationOverlay.setIsVisible(true);
   }
@@ -86,7 +62,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       _destination = position;
     });
     final marker = NMarker(id: 'destination', position: _destination!);
-    _controller.addOverlay(marker);
+    _mapController.addOverlay(marker);
   }
 
   void _fetchRoute() {
@@ -94,48 +70,58 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       return;
     }
     ref.read(routeProvider.notifier).fetchRoute(
-          start: _currentPosition,
+          start: _initialPosition!,
           end: _destination!,
         );
+  }
+
+  void _onButtonPressed() async {
+    await _audioPlayer.resume();
+    Future.delayed(const Duration(milliseconds: 100), () {
+      _audioPlayer.pause();
+    });
+    await _audioPlayer.seek(const Duration());
+  }
+
+  void _drawRouteLines(List<RouteLine> routeLines) {
+    for (var routeLine in routeLines) {
+      final polyline = NPolylineOverlay(
+        id: 'route_line_${routeLine.hashCode}',
+        coords: routeLine.positions,
+        color: Colors.blue,
+        width: 5,
+      );
+      _mapController.addOverlay(polyline);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final routeState = ref.watch(routeProvider);
-    // 로드된 경로 데이터를 오버레이로 추가
-    if (routeState is AsyncData<RouteData> &&
-        _isReady[ReadyState.controller] == true) {
-      print(routeState.value.routeLines);
-      for (var routeLine in routeState.value.routeLines) {
-        final polyline = NPolylineOverlay(
-          id: 'route_line_${routeLine.hashCode}',
-          coords: routeLine.positions,
-          color: Colors.blue,
-          width: 5,
-        );
-        _controller.addOverlay(polyline);
-      }
+    if (routeState is AsyncData<RouteData>) {
+      _drawRouteLines(routeState.value.routeLines);
     }
-
     return Scaffold(
       appBar: AppBar(
         title: const Text("네이버 지도"),
       ),
-      body: _isReady[ReadyState.currentPosition] == false
-          ? const Center(
-              child: CircularProgressIndicator(),
-            )
+      body: _initialPosition == null
+          ? const Center(child: CircularProgressIndicator())
           : Stack(
               children: [
                 NaverMap(
                   options: NaverMapViewOptions(
                     initialCameraPosition: NCameraPosition(
-                      target: _currentPosition,
-                      zoom: 18,
+                      target: _initialPosition!,
+                      zoom: 16,
                     ),
                   ),
                   onMapReady: _onMapReady,
                   onMapTapped: _onMapTapped,
+                ),
+                ElevatedButton(
+                  onPressed: _onButtonPressed,
+                  child: const Text("비프음 재생"),
                 ),
                 if (_destination != null)
                   Positioned(
@@ -149,6 +135,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           onPressed: _fetchRoute,
                           child: const Text("경로 생성"),
                         ),
+
                         Card(
                           child: Padding(
                             padding: const EdgeInsets.all(16),
@@ -158,7 +145,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 Text("위도: ${_destination!.latitude}"),
                                 Text("경도: ${_destination!.longitude}"),
                                 Text(
-                                    "거리: ${_currentPosition.distanceTo(_destination!).toStringAsFixed(2)}m"),
+                                    "거리: ${_initialPosition!.distanceTo(_destination!).toStringAsFixed(2)}m"),
                               ],
                             ),
                           ),
