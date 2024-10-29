@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wheretorun/features/naviagtion/models/route_data.dart';
+import 'package:wheretorun/features/naviagtion/models/route_line.dart';
 import 'package:wheretorun/features/naviagtion/services/running_service.dart';
 import 'package:wheretorun/features/naviagtion/view_models/route_view_model.dart';
+import 'package:wheretorun/features/naviagtion/widgets/location_controller.dart';
 import 'package:wheretorun/utils/position_utils.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -25,6 +27,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    _runningService = RunningService();
     _initPosition();
     _initAudioPlayer();
   }
@@ -42,16 +45,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     setState(() {
       _initialPosition = position;
     });
+    _runningService.currentPosition = position;
   }
 
   void _initAudioPlayer() {
     _audioPlayer = AudioPlayer();
     _audioPlayer.setSource(AssetSource("sounds/beep.mp3"));
     _audioPlayer.setBalance(-1);
+    _runningService.audioPlayer = _audioPlayer;
   }
 
   void _onMapReady(NaverMapController controller) {
     _mapController = controller;
+    _runningService.mapController = controller;
     final NLocationOverlay locationOverlay = controller.getLocationOverlay();
     locationOverlay.setIsVisible(true);
   }
@@ -104,13 +110,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  void startRunning(RouteData routeData) {
-    _runningService = RunningService(
-      audioPlayer: _audioPlayer,
-      routeData: routeData,
-      initialPosition: _initialPosition!,
-    );
-  }
+  void startRunning(RouteData routeData) {}
 
   @override
   Widget build(BuildContext context) {
@@ -118,6 +118,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final routeData = routeState.value!;
     if (routeState is AsyncData<RouteData> &&
         routeState.value.routeLines.isNotEmpty) {
+      _runningService.routeData = routeState.value;
       _clearRouteLines();
       _drawRouteLines(routeState.value.routeLines);
     } else if (routeState is AsyncError) {
@@ -184,6 +185,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ],
                     ),
                   ),
+                Positioned(
+                  top: 16,
+                  right: 16,
+                  child: LocationController(
+                    onUp: _runningService.moveToUp,
+                    onDown: _runningService.moveToDown,
+                    onLeft: _runningService.moveToLeft,
+                    onRight: _runningService.moveToRight,
+                  ),
+                ),
               ],
             ),
     );
