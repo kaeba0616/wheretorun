@@ -1,8 +1,10 @@
+import 'dart:developer';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wheretorun/features/naviagtion/models/route_data.dart';
+import 'package:wheretorun/features/naviagtion/services/running_service.dart';
 import 'package:wheretorun/features/naviagtion/view_models/route_view_model.dart';
 import 'package:wheretorun/utils/position_utils.dart';
 
@@ -16,8 +18,9 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   NLatLng? _initialPosition;
   NLatLng? _destination;
-  late NaverMapController _mapController;
+  late final NaverMapController _mapController;
   late final AudioPlayer _audioPlayer;
+  late final RunningService _runningService;
 
   @override
   void initState() {
@@ -95,11 +98,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
+  void _clearRouteLines() {
+    _mapController.clearOverlays(
+      type: NOverlayType.polylineOverlay,
+    );
+  }
+
+  void startRunning(RouteData routeData) {
+    _runningService = RunningService(
+      audioPlayer: _audioPlayer,
+      routeData: routeData,
+      initialPosition: _initialPosition!,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final routeState = ref.watch(routeProvider);
-    if (routeState is AsyncData<RouteData>) {
+    final routeData = routeState.value!;
+    if (routeState is AsyncData<RouteData> &&
+        routeState.value.routeLines.isNotEmpty) {
+      _clearRouteLines();
       _drawRouteLines(routeState.value.routeLines);
+    } else if (routeState is AsyncError) {
+      final error = routeState.error;
+      final stack = routeState.stackTrace;
+      log("Error: $error", stackTrace: stack);
     }
     return Scaffold(
       appBar: AppBar(
@@ -130,6 +154,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     right: 16,
                     child: Column(
                       children: [
+                        //달리기 시작 버튼
+                        ElevatedButton(
+                          onPressed: () {
+                            startRunning(routeData);
+                          },
+                          child: const Text("달리기 시작"),
+                        ),
                         // 경로생성 버튼
                         ElevatedButton(
                           onPressed: _fetchRoute,

@@ -34,11 +34,13 @@ class RouteRepository {
       if (response.statusCode == 200) {
         return response;
       } else {
-        throw Exception('Failed to load route data: ${response.statusCode}');
+        throw DioException(
+          requestOptions: response.requestOptions,
+          response: response,
+        );
       }
-    } on DioException catch (e) {
-      print("DioException: ${e.response?.statusCode}, ${e.message}");
-      throw Exception('Failed to fetch route');
+    } catch (e) {
+      rethrow;
     }
   }
 }
