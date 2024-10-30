@@ -5,6 +5,7 @@ import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wheretorun/features/naviagtion/models/route_data.dart';
 import 'package:wheretorun/features/naviagtion/models/route_line.dart';
+import 'package:wheretorun/features/naviagtion/models/route_point.dart';
 import 'package:wheretorun/features/naviagtion/services/running_service.dart';
 import 'package:wheretorun/features/naviagtion/view_models/route_view_model.dart';
 import 'package:wheretorun/features/naviagtion/widgets/location_controller.dart';
@@ -73,14 +74,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _mapController.addOverlay(marker);
   }
 
-  void _fetchRoute() {
+  void _fetchRoute() async {
     if (_destination == null) {
       return;
     }
-    ref.read(routeProvider.notifier).fetchRoute(
+    await ref.read(routeProvider.notifier).fetchRoute(
           start: _initialPosition!,
           end: _destination!,
         );
+    final routeData = ref.read(routeProvider).value!;
+    _runningService.routeData = routeData;
+    _clearRoute();
+    _drawRouteLines(routeData.routeLines);
+    _drawRoutePoints(routeData.routePoints);
   }
 
   void _onButtonPressed() async {
@@ -89,6 +95,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       _audioPlayer.pause();
     });
     await _audioPlayer.seek(const Duration());
+  }
+
+  void _drawRoutePoints(List<RoutePoint> routePoints) {
+    for (var routePoint in routePoints) {
+      if (routePoint.type == PointType.end) {
+        final marker = NMarker(
+          id: "route_point_${routePoint.hashCode}",
+          position: routePoint.position,
+        );
+        _mapController.addOverlay(marker);
+        continue;
+      }
+
+      final circle = NCircleOverlay(
+        id: "route_point_${routePoint.hashCode}",
+        center: routePoint.position,
+        radius: 5,
+        outlineWidth: 2,
+        outlineColor: Colors.black,
+      );
+      _mapController.addOverlay(circle);
+    }
   }
 
   void _drawRouteLines(List<RouteLine> routeLines) {
@@ -103,10 +131,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
-  void _clearRouteLines() {
-    _mapController.clearOverlays(
-      type: NOverlayType.polylineOverlay,
-    );
+  void _clearRoute() {
+    _mapController.clearOverlays();
   }
 
   void startRunning() {
@@ -115,18 +141,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final routeState = ref.watch(routeProvider);
-    final routeData = routeState.value!;
-    if (routeState is AsyncData<RouteData> &&
-        routeState.value.routeLines.isNotEmpty) {
-      _runningService.routeData = routeState.value;
-      _clearRouteLines();
-      _drawRouteLines(routeState.value.routeLines);
-    } else if (routeState is AsyncError) {
-      final error = routeState.error;
-      final stack = routeState.stackTrace;
-      log("Error: $error", stackTrace: stack);
-    }
     return Scaffold(
       appBar: AppBar(
         title: const Text("네이버 지도"),

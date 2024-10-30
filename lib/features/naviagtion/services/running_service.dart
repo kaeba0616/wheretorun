@@ -11,9 +11,9 @@ class RunningService {
   late RouteData routeData;
   late NLatLng currentPosition;
   late NaverMapController mapController;
-  final double step = 0.00001;
-  final double alertDistance = 20.0;
-  final double arrivalThreshold = 10.0;
+  final double step = 0.00005;
+  final double alertDistance = 40.0;
+  final double arrivalThreshold = 20.0;
   int _nextPointIndex = 1;
 
   RunningService();
@@ -75,8 +75,9 @@ class RunningService {
     final bearing2 =
         _calculateBearing(nextPoint.position, nextNextPoint.position);
     final angle = bearing1 - bearing2;
+
     audioPlayer.setBalance(angle / 180);
-    print("angle: $angle");
+    developer.log("angle: $angle");
     audioPlayer.play(AssetSource("sounds/beep.mp3"));
   }
 
