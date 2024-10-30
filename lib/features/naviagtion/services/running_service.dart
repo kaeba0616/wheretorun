@@ -3,6 +3,7 @@ import 'dart:developer' as developer;
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:wheretorun/features/naviagtion/models/route_data.dart';
 import 'package:wheretorun/features/naviagtion/models/route_point.dart';
 
@@ -20,6 +21,13 @@ class RunningService {
 
   void start() {
     // 1. positionStream을 구독하여 위치 정보 업데이트 (임시로 우리는 move 함수로 위치를 이동시킴)
+    //  임시로 했던것을 positionStream을 다시 구독하는것으로 변경
+    Geolocator.getPositionStream().listen((position) {
+      currentPosition = NLatLng(position.latitude, position.longitude);
+      _updateCurrentPosition();
+      _checkPointProximity();
+    });
+
     // 2. routeData를 이용하여, 현재 위치와 다음 경유지 사이의 거리를 계산
     // 3. 알림 구역내로 들어왔으면, 다음 경유지의 방향에 따라 그 각도로, 알림음 방향을 조절하여 재생
     // 4. 경유지에 도착하면, 경유지 도착 알림음 재생 후, 다음 경유지 설정
