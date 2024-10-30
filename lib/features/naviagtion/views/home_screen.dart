@@ -1,9 +1,7 @@
-import 'dart:developer';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:wheretorun/features/naviagtion/models/route_data.dart';
 import 'package:wheretorun/features/naviagtion/models/route_line.dart';
 import 'package:wheretorun/features/naviagtion/models/route_point.dart';
 import 'package:wheretorun/features/naviagtion/services/running_service.dart';
@@ -23,12 +21,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   NLatLng? _destination;
   late final NaverMapController _mapController;
   late final AudioPlayer _audioPlayer;
-  late final RunningService _runningService;
+  // late final RunningService _runningService;
+
+  bool isRunning = false;
 
   @override
   void initState() {
     super.initState();
-    _runningService = RunningService();
+    // _runningService = RunningService();
     _initPosition();
     _initAudioPlayer();
   }
@@ -46,18 +46,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     setState(() {
       _initialPosition = position;
     });
-    _runningService.currentPosition = position;
+    ref.read(runningProvider.notifier).currentPosition = position;
   }
 
   void _initAudioPlayer() {
     _audioPlayer = AudioPlayer();
     _audioPlayer.setSource(AssetSource("sounds/beep.mp3"));
-    _runningService.audioPlayer = _audioPlayer;
+    ref.read(runningProvider.notifier).audioPlayer = _audioPlayer;
   }
 
   void _onMapReady(NaverMapController controller) {
     _mapController = controller;
-    _runningService.mapController = controller;
+    ref.read(runningProvider.notifier).mapController = controller;
     final NLocationOverlay locationOverlay = controller.getLocationOverlay();
     locationOverlay.setIsVisible(true);
   }
@@ -83,10 +83,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           end: _destination!,
         );
     final routeData = ref.read(routeProvider).value!;
-    _runningService.routeData = routeData;
+    ref.read(runningProvider.notifier).routeData = routeData;
     _clearRoute();
     _drawRouteLines(routeData.routeLines);
     _drawRoutePoints(routeData.routePoints);
+    setState(() {
+      isRunning = true;
+    });
   }
 
   void _onButtonPressed() async {
@@ -136,11 +139,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   void startRunning() {
-    _runningService.start();
+    ref.read(runningProvider.notifier).start();
+  }
+
+  void moveLeft() {
+    ref.read(runningProvider.notifier).moveLeft();
+    // ref.read(runningProvider.notifier).moveLeft();
+  }
+
+  void moveRight() {
+    ref.read(runningProvider.notifier).moveRight();
+    // ref.read(runningProvider.notifier).moveRight();
+  }
+
+  void moveUp() {
+    ref.read(runningProvider.notifier).moveUp();
+    // ref.read(runningProvider.notifier).moveUp();
+  }
+
+  void moveDown() {
+    ref.read(runningProvider.notifier).moveDown();
+    // ref.read(runningProvider.notifier).moveDown();
   }
 
   @override
   Widget build(BuildContext context) {
+    final remainDistance = ref.watch(runningProvider);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text("네이버 지도"),
@@ -202,14 +227,34 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   top: 16,
                   right: 16,
                   child: LocationController(
-                    onUp: _runningService.moveToUp,
-                    onDown: _runningService.moveToDown,
-                    onLeft: _runningService.moveToLeft,
-                    onRight: _runningService.moveToRight,
+                    onUp: moveUp,
+                    onDown: moveDown,
+                    onLeft: moveLeft,
+                    onRight: moveRight,
                   ),
                 ),
+                isRunning
+                    ? Positioned(
+                        bottom: 30,
+                        right: 16,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.grey,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          padding: const EdgeInsets.all(8),
+                          child: Text('${remainDistance}m'),
+                        ),
+                      )
+                    : const SizedBox(),
               ],
             ),
     );
   }
 }
+// [log] remainDistance: 409
+// [log] remainDistance: 315
+// [log] remainDistance: 177
+// [log] remainDistance: 149
+// [log] remainDistance: 139
+// [log] remainDistance: 0

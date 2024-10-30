@@ -3,10 +3,12 @@ import 'package:flutter_naver_map/flutter_naver_map.dart';
 class RoutePoint {
   final NLatLng position;
   final PointType type;
+  final int remainDistance;
 
   RoutePoint({
     required this.position,
     required this.type,
+    required this.remainDistance,
   });
 }
 
