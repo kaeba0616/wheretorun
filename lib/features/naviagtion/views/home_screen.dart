@@ -51,7 +51,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void _initAudioPlayer() {
     _audioPlayer = AudioPlayer();
     _audioPlayer.setSource(AssetSource("sounds/beep.mp3"));
-    _audioPlayer.setBalance(-1);
     _runningService.audioPlayer = _audioPlayer;
   }
 
@@ -110,7 +109,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  void startRunning(RouteData routeData) {}
+  void startRunning() {
+    _runningService.start();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -157,9 +158,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       children: [
                         //달리기 시작 버튼
                         ElevatedButton(
-                          onPressed: () {
-                            startRunning(routeData);
-                          },
+                          onPressed: startRunning,
                           child: const Text("달리기 시작"),
                         ),
                         // 경로생성 버튼
