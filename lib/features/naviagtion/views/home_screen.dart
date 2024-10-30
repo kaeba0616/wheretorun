@@ -252,9 +252,3 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 }
-// [log] remainDistance: 409
-// [log] remainDistance: 315
-// [log] remainDistance: 177
-// [log] remainDistance: 149
-// [log] remainDistance: 139
-// [log] remainDistance: 0
