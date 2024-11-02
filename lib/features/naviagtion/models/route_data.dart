@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:wheretorun/features/naviagtion/models/route_line.dart';
 import 'package:wheretorun/features/naviagtion/models/route_point.dart';
@@ -20,6 +22,7 @@ class RouteData {
 
   factory RouteData.fromJson(Map<String, dynamic> json) {
     final features = json['features'] as List<dynamic>;
+    int remainDistance = 0;
     int totalDistance = 0;
     final points = <RoutePoint>[];
     final lines = <RouteLine>[];
@@ -28,18 +31,22 @@ class RouteData {
       final geometry = feature['geometry'];
       final type = geometry['type'];
       final properties = feature['properties'];
-
-      const totalDistance = 0;
-
       if (type == "Point") {
+        if (properties['pointType'] == 'SP') {
+          totalDistance = properties['totalDistance'];
+          remainDistance = totalDistance;
+        }
+        log('remainDistance: $remainDistance');
         points.add(RoutePoint(
           position: NLatLng(
             geometry['coordinates'][1],
             geometry['coordinates'][0],
           ),
           type: PointType.fromString(properties['pointType']),
+          remainDistance: remainDistance,
         ));
       } else if (type == "LineString") {
+        remainDistance -= properties['distance'] as int;
         lines.add(RouteLine(
           positions: (geometry['coordinates'] as List<dynamic>)
               .map((coord) =>
