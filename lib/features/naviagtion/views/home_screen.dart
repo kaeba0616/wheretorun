@@ -10,6 +10,8 @@ import 'package:wheretorun/features/naviagtion/widgets/location_controller.dart'
 import 'package:wheretorun/utils/position_utils.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
+  static const String routeName = "home";
+  static const String routeUrl = "/home";
   const HomeScreen({super.key});
 
   @override
