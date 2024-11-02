@@ -42,7 +42,14 @@ class _RealHomeScreenState extends State<RealHomeScreen> {
                         ),
                       ),
                     ),
-                    Text("달리기를 시작하세요!"),
+                    Text(
+                      "달리기를 시작하세요!",
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey,
+                      ),
+                    ),
                   ],
                 ),
                 Column(
@@ -51,7 +58,7 @@ class _RealHomeScreenState extends State<RealHomeScreen> {
                       onStartTap: () {},
                       onExitTap: () {},
                     ),
-                    Gaps.v14,
+                    Gaps.v36,
                   ],
                 ),
               ],

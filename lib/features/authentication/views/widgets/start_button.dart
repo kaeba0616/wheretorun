@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:wheretorun/constants/sizes.dart';
 
 class HomeButton extends StatefulWidget {
-  final FaIcon icon;
+  final String text;
 
   final Function()? onTap;
   const HomeButton({
     super.key,
-    required this.icon,
+    required this.text,
     this.onTap,
   });
 
@@ -38,7 +37,7 @@ class _HomeButtonState extends State<HomeButton> {
         scale: _isPressed ? 0.90 : 0.95,
         alignment: Alignment.center,
         child: AnimatedContainer(
-          width: Sizes.size80,
+          width: Sizes.size96 + Sizes.size96,
           duration: const Duration(milliseconds: 150),
           decoration: BoxDecoration(
             color: _isPressed
@@ -57,13 +56,22 @@ class _HomeButtonState extends State<HomeButton> {
                   ],
           ),
           child: Padding(
-            padding: const EdgeInsets.all(Sizes.size20),
+            padding: const EdgeInsets.symmetric(
+              vertical: Sizes.size16,
+            ),
             child: Stack(
               alignment: Alignment.center,
               children: [
                 Align(
                   alignment: Alignment.center,
-                  child: widget.icon,
+                  child: Text(
+                    widget.text,
+                    style: TextStyle(
+                      color: Colors.grey.shade800,
+                      fontSize: Sizes.size24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
               ],
             ),
