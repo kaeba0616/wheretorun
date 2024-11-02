@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'dart:developer' as developer;
 import 'package:audioplayers/audioplayers.dart';
@@ -17,6 +18,8 @@ class RunningService {
 
   int _nextPointIndex = 1;
   final ValueNotifier<int> remainDistanceNotifier = ValueNotifier(0);
+  final ValueNotifier<int> runningTimeNotifier = ValueNotifier(0);
+  Timer? _timer;
 
   set audioPlayer(AudioPlayer player) {
     _audioPlayer = player;
@@ -52,6 +55,31 @@ class RunningService {
     // 3. 현재 위치와 그전 경유지 즉, 처음 시작할때는 시작점 사이의 거리를 계산 (지나온 거리라고 변수 만듬)
     // 4. 그전 경유지 즉, 처음 시작할떄는 시작점에서의 remainDistance와 지나온 거리를 빼서 남은 거리를 계산
     // 5. 다음 경유지에 도착시 remainDistance를 갱신
+
+    _startTimer();
+  }
+
+  void _startTimer() {
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      runningTimeNotifier.value++;
+    });
+  }
+
+  void pause() {
+    // 타이머 일시정지
+    _timer?.cancel();
+  }
+
+  void resume() {
+    // 타이머 재개
+    _startTimer();
+  }
+
+  void stop() {
+    // 1. positionStream 구독 해제
+    // 2. audioPlayer 정지
+    // 3. 타이머 정지
+    _timer?.cancel();
   }
 
   void _updateCurrentPosition() {

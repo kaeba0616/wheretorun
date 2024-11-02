@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wheretorun/constants/gaps.dart';
-import 'package:wheretorun/features/common/widgets/start_button.dart';
+import 'package:wheretorun/widgets/start_button.dart';
 
 class HomeButtonContainer extends ConsumerWidget {
   final VoidCallback onStartTap;

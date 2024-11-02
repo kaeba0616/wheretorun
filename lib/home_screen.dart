@@ -5,9 +5,9 @@ import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wheretorun/constants/gaps.dart';
 import 'package:wheretorun/constants/sizes.dart';
-import 'package:wheretorun/features/common/widgets/start_button_container.dart';
 import 'package:wheretorun/features/naviagtion/views/running_screen.dart';
 import 'package:wheretorun/utils.dart';
+import 'package:wheretorun/widgets/start_button_container.dart';
 
 class HomeScreen extends StatefulWidget {
   static const String routeName = 'home';
@@ -89,9 +89,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     HomeButtonContainer(
                       onStartTap: () {
-                        context.go(
-                          RunningScreen.routeUrl,
-                        );
+                        context.push(RunningScreen.routeUrl);
                       },
                       onExitTap: () {},
                     ),

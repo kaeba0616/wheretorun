@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:developer';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:wheretorun/constants/sizes.dart';
 import 'package:wheretorun/features/naviagtion/models/route_line.dart';
 import 'package:wheretorun/features/naviagtion/models/route_point.dart';
 import 'package:wheretorun/features/naviagtion/services/running_service.dart';
@@ -17,7 +19,9 @@ enum RunningState {
   selectDestination, // 도착지 선택 상태
   generateRoute, // 경로 생성 상태
   startRunning, // 달리기 시작 대기 상태
+  countdown, // 카운트 다운 상태
   running, // 달리기 중 상태
+  paused, // 일시정지 상태
   finished, // 도착 및 완료 상태
 }
 
@@ -28,7 +32,8 @@ Map<RunningState, String> stateMessage = {
   RunningState.generateRoute: "경로 생성 버튼을 눌러주세요.",
   RunningState.startRunning: "달리기 시작을 눌러주세요.",
   RunningState.running: "달리기 중입니다.",
-  RunningState.finished: "도착했습니다.",
+  RunningState.paused: "일시정지 중입니다.",
+  RunningState.finished: "달리기가 종료되었습니다.",
 };
 
 class RunningScreen extends ConsumerStatefulWidget {
@@ -51,7 +56,7 @@ class _RunningScreenState extends ConsumerState<RunningScreen> {
   RunningState _currentState = RunningState.initialPosition;
 
   // 초기 카운트 다운
-  final int _countDown = 3;
+  final ValueNotifier<int> _countdown = ValueNotifier(3);
 
   @override
   void initState() {
@@ -65,6 +70,7 @@ class _RunningScreenState extends ConsumerState<RunningScreen> {
   void dispose() {
     _audioPlayer.dispose();
     _mapController.dispose();
+    _countdown.dispose();
     super.dispose();
   }
 
@@ -94,6 +100,7 @@ class _RunningScreenState extends ConsumerState<RunningScreen> {
   }
 
   void _onMapTapped(NPoint point, NLatLng position) {
+    if (_currentState != RunningState.selectDestination) return;
     _setDestination(position);
   }
 
@@ -156,10 +163,24 @@ class _RunningScreenState extends ConsumerState<RunningScreen> {
 
   void startRunning() {
     setState(() {
-      _currentState = RunningState.running;
+      _currentState = RunningState.countdown;
     });
+    _startCountdown();
+  }
 
-    _runningService.start();
+  void _startCountdown() {
+    _countdown.value = 3;
+    Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_countdown.value == 0) {
+        timer.cancel();
+        _runningService.start();
+        setState(() {
+          _currentState = RunningState.running;
+        });
+      } else {
+        _countdown.value--;
+      }
+    });
   }
 
   @override
@@ -204,16 +225,64 @@ class _RunningScreenState extends ConsumerState<RunningScreen> {
                 child: const Text("달리기 시작"),
               ),
             ),
-          if (_currentState == RunningState.running) ...[
-            Positioned(
-              top: 16,
-              right: 16,
-              child: LocationController(
-                  onUp: _runningService.moveUp,
-                  onDown: _runningService.moveDown,
-                  onLeft: _runningService.moveLeft,
-                  onRight: _runningService.moveRight),
+          if (_currentState == RunningState.countdown) _buildCountdown(),
+          if (_currentState == RunningState.paused) ...[
+            Align(
+              alignment: Alignment.center,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ElevatedButton(
+                    onPressed: () {
+                      _runningService.resume();
+                      setState(() {
+                        _currentState = RunningState.running;
+                      });
+                    },
+                    child: const Text("다시 시작"),
+                  ),
+                  ElevatedButton(
+                    onPressed: () {
+                      // _runningService.stop();
+                      setState(() {
+                        _currentState = RunningState.finished;
+                      });
+                    },
+                    child: const Text("달리기 종료"),
+                  ),
+                ],
+              ),
             ),
+          ],
+          if (_currentState == RunningState.running) ...[
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: LocationController(
+                onUp: _runningService.moveUp,
+                onDown: _runningService.moveDown,
+                onLeft: _runningService.moveLeft,
+                onRight: _runningService.moveRight,
+              ),
+            ),
+            // 달리기 일시정지 버튼
+            Align(
+              alignment: Alignment.topCenter,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 30),
+                child: ElevatedButton(
+                  onPressed: () {
+                    _runningService.pause();
+                    setState(() {
+                      _currentState = RunningState.paused;
+                    });
+                  },
+                  child: const Text("일시정지"),
+                ),
+              ),
+            ),
+          ],
+          if (_currentState == RunningState.running ||
+              _currentState == RunningState.paused) ...[
             Positioned(
               bottom: 16,
               right: 16,
@@ -230,8 +299,75 @@ class _RunningScreenState extends ConsumerState<RunningScreen> {
                     }),
               ),
             ),
-          ]
+            // 달리기 타이머
+            Positioned(
+              bottom: 30,
+              left: 16,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.grey,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding: const EdgeInsets.all(8),
+                child: ValueListenableBuilder<int>(
+                  valueListenable: _runningService.runningTimeNotifier,
+                  builder: (context, time, child) {
+                    final minutes = (time / 60).floor();
+                    final seconds = time % 60;
+                    return Text(
+                      "달린 시간: ${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}",
+                      style: const TextStyle(color: Colors.white, fontSize: 16),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
+          // 달리기 종료 후, 결과 출력 및 나가기 버튼
+          if (_currentState == RunningState.finished) ...[
+            // runningService에서 결과들을 가져와서 보여준다.
+            Positioned(
+              bottom: 16,
+              left: 16,
+              right: 16,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                child: const Text("나가기"),
+              ),
+            ),
+          ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildCountdown() {
+    return Align(
+      alignment: Alignment.center,
+      child: ValueListenableBuilder<int>(
+        valueListenable: _countdown,
+        builder: (context, value, child) {
+          return Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: Sizes.size20,
+              vertical: Sizes.size10,
+            ),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.6),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              value == 0 ? "달리기 시작!" : value.toString(),
+              style: const TextStyle(
+                fontSize: 60,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -242,7 +378,7 @@ class _RunningScreenState extends ConsumerState<RunningScreen> {
     if (stateMessage.containsKey(state)) {
       message = stateMessage[state]!;
     }
-    if (state == RunningState.running) {
+    if (state == RunningState.running || state == RunningState.countdown) {
       return const SizedBox();
     }
     return Positioned(
