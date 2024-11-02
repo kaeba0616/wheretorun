@@ -1,10 +1,11 @@
 import 'dart:async';
-import 'dart:developer';
+import 'dart:math';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:wheretorun/constants/sizes.dart';
 import 'package:wheretorun/features/naviagtion/models/route_line.dart';
 import 'package:wheretorun/features/naviagtion/models/route_point.dart';
@@ -100,8 +101,10 @@ class _RunningScreenState extends ConsumerState<RunningScreen> {
   }
 
   void _onMapTapped(NPoint point, NLatLng position) {
-    if (_currentState != RunningState.selectDestination) return;
-    _setDestination(position);
+    if (_currentState == RunningState.selectDestination ||
+        _currentState == RunningState.generateRoute) {
+      _setDestination(position);
+    }
   }
 
   void _setDestination(NLatLng position) {
@@ -257,11 +260,11 @@ class _RunningScreenState extends ConsumerState<RunningScreen> {
           if (_currentState == RunningState.running) ...[
             Align(
               alignment: Alignment.bottomCenter,
-              child: LocationController(
-                onUp: _runningService.moveUp,
-                onDown: _runningService.moveDown,
-                onLeft: _runningService.moveLeft,
-                onRight: _runningService.moveRight,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 60),
+                child: LocationController(
+                  runningService: _runningService,
+                ),
               ),
             ),
             // 달리기 일시정지 버튼
@@ -269,14 +272,38 @@ class _RunningScreenState extends ConsumerState<RunningScreen> {
               alignment: Alignment.topCenter,
               child: Padding(
                 padding: const EdgeInsets.only(top: 30),
-                child: ElevatedButton(
-                  onPressed: () {
-                    _runningService.pause();
-                    setState(() {
-                      _currentState = RunningState.paused;
-                    });
-                  },
-                  child: const Text("일시정지"),
+                child: Column(
+                  children: [
+                    ElevatedButton(
+                      onPressed: () {
+                        _runningService.pause();
+                        setState(() {
+                          _currentState = RunningState.paused;
+                        });
+                      },
+                      child: const Text("일시정지"),
+                    ),
+                    ValueListenableBuilder<double>(
+                      valueListenable: _runningService.nextPointAngleNotifier,
+                      builder: (context, angle, child) {
+                        return Transform.rotate(
+                          angle: angle * pi / 180, // 각도에 따라 회전 적용
+                          child: const FaIcon(
+                            FontAwesomeIcons.arrowUp,
+                            color: Colors.red,
+                            size: 60,
+                            shadows: [
+                              Shadow(
+                                color: Colors.black,
+                                offset: Offset(2, 2),
+                                blurRadius: 2,
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -374,7 +401,6 @@ class _RunningScreenState extends ConsumerState<RunningScreen> {
 
   Widget _buildPopup(RunningState state) {
     String message = "";
-    log("state: $state");
     if (stateMessage.containsKey(state)) {
       message = stateMessage[state]!;
     }

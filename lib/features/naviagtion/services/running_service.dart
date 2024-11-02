@@ -14,12 +14,16 @@ class RunningService {
   late NaverMapController _mapController;
   final double step = 0.00005;
   final double alertDistance = 60.0;
-  final double arrivalThreshold = 40.0;
+  final double arrivalThreshold = 10.0;
 
   int _nextPointIndex = 1;
   final ValueNotifier<int> remainDistanceNotifier = ValueNotifier(0);
   final ValueNotifier<int> runningTimeNotifier = ValueNotifier(0);
+  final ValueNotifier<double> nextPointAngleNotifier = ValueNotifier(0.0);
+
   Timer? _timer;
+
+  final List<NCircleOverlay> _circleOverlays = [];
 
   set audioPlayer(AudioPlayer player) {
     _audioPlayer = player;
@@ -28,6 +32,16 @@ class RunningService {
   set routeData(RouteData route) {
     _routeData = route;
     remainDistanceNotifier.value = route.totalDistance;
+
+    for (final point in route.routePoints) {
+      final circleOverlay = NCircleOverlay(
+        id: point.position.toString(),
+        center: point.position,
+        radius: 5,
+        color: Colors.red,
+      );
+      _circleOverlays.add(circleOverlay);
+    }
   }
 
   set currentPosition(NLatLng position) {
@@ -57,12 +71,48 @@ class RunningService {
     // 5. 다음 경유지에 도착시 remainDistance를 갱신
 
     _startTimer();
+    _updateCurrentPosition();
+    _updateNextPointAngle();
+    _setVisitedPoint(0);
+  }
+
+  void _setVisitedPoint(int index) {
+    // 지나간 경유지를 표시하기 위해, 지나간 경유지는 초록색으로 표시
+    _drawCircleOverlay(index, Colors.green);
+    if (index + 1 >= _routeData.routePoints.length) {
+      // 마지막 경유지에 도착
+      return;
+    }
+    // 다음 경유지는 빨간색으로 표시
+    _drawCircleOverlay(index + 1, Colors.red);
+  }
+
+  void _drawCircleOverlay(int index, Color color) {
+    final circleOverlay = _circleOverlays[index];
+
+    final newCircleOverlay = NCircleOverlay(
+      id: "circle_$index",
+      center: circleOverlay.center,
+      radius: circleOverlay.radius,
+      color: color,
+    );
+    _circleOverlays[index] = newCircleOverlay;
+    _mapController.addOverlay(newCircleOverlay);
   }
 
   void _startTimer() {
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       runningTimeNotifier.value++;
     });
+  }
+
+  void _updateNextPointAngle() {
+    if (_nextPointIndex < _routeData.routePoints.length) {
+      final nextPoint = _routeData.routePoints[_nextPointIndex];
+      final angle = _calculateBearing(_currentPosition, nextPoint.position);
+      nextPointAngleNotifier.value = angle;
+      print("angle: $angle");
+    }
   }
 
   void pause() {
@@ -83,10 +133,26 @@ class RunningService {
   }
 
   void _updateCurrentPosition() {
-    // 현재 위치를 업데이트
+    // 현재 위치를 업데이트하고, 지도에 위치 오버레이를 업데이트
     final NLocationOverlay locationOverlay =
         _mapController.getLocationOverlay();
     locationOverlay.setPosition(_currentPosition);
+    _mapController.updateCamera(
+      NCameraUpdate.withParams(
+        target: _currentPosition,
+      ),
+    );
+  }
+
+  void _onArriveNextPoint() {
+    _setVisitedPoint(_nextPointIndex);
+    // 카메라 각도를 다음 경유지 방향으로 설정
+    _mapController.updateCamera(
+      NCameraUpdate.withParams(
+        bearing: nextPointAngleNotifier.value,
+      ),
+    );
+    _nextPointIndex++;
   }
 
   void _checkPointProximity() {
@@ -101,19 +167,15 @@ class RunningService {
     final nextPoint = _routeData.routePoints[_nextPointIndex];
     final distance = _currentPosition.distanceTo(nextPoint.position).toInt();
     remainDistanceNotifier.value = nextPoint.remainDistance + distance;
-    developer.log("Distance to the next point: $distance");
+    _updateNextPointAngle();
+
     if (distance <= arrivalThreshold) {
-      developer.log(
-          "Arrived at the next point: ${_routeData.routePoints[_nextPointIndex].position}");
-      _nextPointIndex++;
+      _onArriveNextPoint();
       // audioPlayer.play("경유지 도착 알림음 경로");
       return;
     }
     if (distance <= alertDistance) {
-      _playDirectionalAlert(nextPoint);
-      developer.log("Alert at the next point: $_nextPointIndex");
-      developer.log(
-          "Alert at the next point: ${_routeData.routePoints[_nextPointIndex].position}");
+      // _playDirectionalAlert(nextPoint);
     }
   }
 
@@ -163,4 +225,8 @@ class RunningService {
   void moveLeft() => _move(0, -step);
   void moveUp() => _move(step, 0);
   void moveDown() => _move(-step, 0);
+  void moveUpRight() => _move(step, step);
+  void moveUpLeft() => _move(step, -step);
+  void moveDownRight() => _move(-step, step);
+  void moveDownLeft() => _move(-step, -step);
 }
