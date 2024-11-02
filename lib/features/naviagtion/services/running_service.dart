@@ -13,7 +13,7 @@ class RunningService {
   late NLatLng _currentPosition;
   late NaverMapController _mapController;
   final double step = 0.00005;
-  final double alertDistance = 100.0;
+  final double alertThreshold = 100.0;
   final double arrivalThreshold = 10.0;
 
   int _nextPointIndex = 0;
@@ -168,8 +168,10 @@ class RunningService {
     _audioPlayer.stop();
     isFinishedNotifier.value = true;
     _audioPlayer.play(AssetSource("sounds/finish.mp3"));
-    Future.delayed(const Duration(seconds: 1), () {});
-    _audioPlayer.stop();
+    // 3초 후에 종료
+    Future.delayed(const Duration(seconds: 3), () {
+      _audioPlayer.stop();
+    });
     _showFullRoute();
   }
 
@@ -240,7 +242,7 @@ class RunningService {
       return;
     }
     bool isAlerting = isAlertingNotifier.value;
-    if (distance <= alertDistance) {
+    if (distance <= alertThreshold) {
       // nextPoint가 마지막 도착지일때는 방향 알림음 재생하지 않음
       if (_nextPointIndex + 1 < _routeData.routePoints.length) {
         if (!isAlerting) {
