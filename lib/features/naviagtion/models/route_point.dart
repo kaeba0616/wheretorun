@@ -3,7 +3,7 @@ import 'package:flutter_naver_map/flutter_naver_map.dart';
 class RoutePoint {
   final NLatLng position;
   final PointType type;
-  final int remainDistance;
+  final int remainDistance; // 다음 점까지 남은 거리
 
   RoutePoint({
     required this.position,

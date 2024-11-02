@@ -1,20 +1,53 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wheretorun/constants/gaps.dart';
 import 'package:wheretorun/constants/sizes.dart';
-import 'package:wheretorun/features/authentication/views/widgets/start_button_container.dart';
+import 'package:wheretorun/features/common/widgets/start_button_container.dart';
+import 'package:wheretorun/features/naviagtion/views/running_screen.dart';
+import 'package:wheretorun/utils.dart';
 
-class RealHomeScreen extends StatefulWidget {
-  static const String routeName = 'realHome';
-  static const String routeUrl = '/realHome';
+class HomeScreen extends StatefulWidget {
+  static const String routeName = 'home';
+  static const String routeUrl = '/home';
 
-  const RealHomeScreen({super.key});
+  const HomeScreen({super.key});
 
   @override
-  State<RealHomeScreen> createState() => _RealHomeScreenState();
+  State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _RealHomeScreenState extends State<RealHomeScreen> {
+class _HomeScreenState extends State<HomeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _checkPermission();
+  }
+
+  void _checkPermission() async {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      throw Exception('위치 서비스를 활성화해주세요.');
+    }
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      final requestPermission = await Geolocator.requestPermission();
+      if (requestPermission == LocationPermission.denied ||
+          requestPermission == LocationPermission.deniedForever) {
+        showMessageDialog(
+          context,
+          '위치 권한이 필요합니다.',
+          () => SystemNavigator.pop(),
+        );
+        // 앱 종료
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -55,7 +88,11 @@ class _RealHomeScreenState extends State<RealHomeScreen> {
                 Column(
                   children: [
                     HomeButtonContainer(
-                      onStartTap: () {},
+                      onStartTap: () {
+                        context.go(
+                          RunningScreen.routeUrl,
+                        );
+                      },
                       onExitTap: () {},
                     ),
                     Gaps.v36,

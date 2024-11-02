@@ -1,5 +1,3 @@
-import 'dart:developer';
-
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:wheretorun/features/naviagtion/models/route_line.dart';
 import 'package:wheretorun/features/naviagtion/models/route_point.dart';
@@ -22,8 +20,8 @@ class RouteData {
 
   factory RouteData.fromJson(Map<String, dynamic> json) {
     final features = json['features'] as List<dynamic>;
-    int remainDistance = 0;
-    int totalDistance = 0;
+    int remainDistance = 0; // 해당 점에서의 남은 거리
+    int totalDistance = 0; // 총 거리
     final points = <RoutePoint>[];
     final lines = <RouteLine>[];
 
@@ -33,15 +31,14 @@ class RouteData {
       final properties = feature['properties'];
       if (type == "Point") {
         if (properties['pointType'] == 'SP') {
+          // 시작점에만 totalDistance가 존재
           totalDistance = properties['totalDistance'];
           remainDistance = totalDistance;
+          // 시작점의 remainDistance는 totalDistance와 같음
         }
-        log('remainDistance: $remainDistance');
         points.add(RoutePoint(
-          position: NLatLng(
-            geometry['coordinates'][1],
-            geometry['coordinates'][0],
-          ),
+          position:
+              NLatLng(geometry['coordinates'][1], geometry['coordinates'][0]),
           type: PointType.fromString(properties['pointType']),
           remainDistance: remainDistance,
         ));

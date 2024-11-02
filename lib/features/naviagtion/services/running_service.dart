@@ -1,31 +1,38 @@
 import 'dart:math';
 import 'dart:developer' as developer;
-
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wheretorun/features/naviagtion/models/route_data.dart';
 import 'package:wheretorun/features/naviagtion/models/route_point.dart';
 
-class RunningService extends StateNotifier<int> {
-  late final AudioPlayer audioPlayer;
+class RunningService {
+  late final AudioPlayer _audioPlayer;
   late RouteData _routeData;
   late NLatLng _currentPosition;
-  late NaverMapController mapController;
+  late NaverMapController _mapController;
   final double step = 0.00005;
   final double alertDistance = 60.0;
-
   final double arrivalThreshold = 40.0;
+
   int _nextPointIndex = 1;
-  RunningService() : super(30);
+  final ValueNotifier<int> remainDistanceNotifier = ValueNotifier(0);
+
+  set audioPlayer(AudioPlayer player) {
+    _audioPlayer = player;
+  }
 
   set routeData(RouteData route) {
     _routeData = route;
-    state = _routeData.totalDistance;
+    remainDistanceNotifier.value = route.totalDistance;
   }
 
   set currentPosition(NLatLng position) {
     _currentPosition = position;
+  }
+
+  set mapController(NaverMapController controller) {
+    _mapController = controller;
   }
 
   void start() {
@@ -47,27 +54,10 @@ class RunningService extends StateNotifier<int> {
     // 5. 다음 경유지에 도착시 remainDistance를 갱신
   }
 
-  int _updateRemainingDistance() {
-    if (_nextPointIndex >= _routeData.routePoints.length) {
-      //  거리가 0이하가 될때의 로직
-      return 0;
-    }
-    //  TODO : arrival Threshold가 크면 nextPointindex가 실제보다 먼저 증가되어서 거리 표시할때 감소했다가 증가했다가 다시 감소하는 현상이 발생
-
-    final prevPoint = _routeData.routePoints[_nextPointIndex - 1];
-    int remainDistance = prevPoint.remainDistance;
-
-    //  TODO: 상의해서 형변환을 어떻게 할지 결정해야함
-    //  totalDistance가 int값인데 distanceTo는 double이라 int로 형변환
-    final passedDistance = _currentPosition.distanceTo(prevPoint.position);
-    remainDistance -= passedDistance.toInt();
-    developer.log('passedDistance: $passedDistance');
-    return remainDistance;
-  }
-
   void _updateCurrentPosition() {
     // 현재 위치를 업데이트
-    final NLocationOverlay locationOverlay = mapController.getLocationOverlay();
+    final NLocationOverlay locationOverlay =
+        _mapController.getLocationOverlay();
     locationOverlay.setPosition(_currentPosition);
   }
 
@@ -80,9 +70,9 @@ class RunningService extends StateNotifier<int> {
       // audioPlayer.play("도착 알림음 경로");
       return;
     }
-
     final nextPoint = _routeData.routePoints[_nextPointIndex];
-    final distance = _currentPosition.distanceTo(nextPoint.position);
+    final distance = _currentPosition.distanceTo(nextPoint.position).toInt();
+    remainDistanceNotifier.value = nextPoint.remainDistance + distance;
     developer.log("Distance to the next point: $distance");
     if (distance <= arrivalThreshold) {
       developer.log(
@@ -91,7 +81,6 @@ class RunningService extends StateNotifier<int> {
       // audioPlayer.play("경유지 도착 알림음 경로");
       return;
     }
-
     if (distance <= alertDistance) {
       _playDirectionalAlert(nextPoint);
       developer.log("Alert at the next point: $_nextPointIndex");
@@ -114,9 +103,9 @@ class RunningService extends StateNotifier<int> {
         _calculateBearing(nextPoint.position, nextNextPoint.position);
     final angle = bearing1 - bearing2;
 
-    audioPlayer.setBalance(angle / 180);
+    _audioPlayer.setBalance(angle / 180);
     developer.log("angle: $angle");
-    audioPlayer.play(AssetSource("sounds/beep.mp3"));
+    _audioPlayer.play(AssetSource("sounds/beep.mp3"));
   }
 
   double _calculateBearing(NLatLng from, NLatLng to) {
@@ -138,9 +127,6 @@ class RunningService extends StateNotifier<int> {
       _currentPosition.latitude + distLat,
       _currentPosition.longitude + distLng,
     );
-
-    state = _updateRemainingDistance();
-    developer.log("remainDistance: $state");
     _updateCurrentPosition();
     _checkPointProximity();
   }
@@ -150,7 +136,3 @@ class RunningService extends StateNotifier<int> {
   void moveUp() => _move(step, 0);
   void moveDown() => _move(-step, 0);
 }
-
-final runningProvider = StateNotifierProvider<RunningService, int>(
-  (ref) => RunningService(),
-);
