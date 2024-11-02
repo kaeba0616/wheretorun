@@ -21,6 +21,16 @@ enum RunningState {
   finished, // 도착 및 완료 상태
 }
 
+Map<RunningState, String> stateMessage = {
+  RunningState.initialPosition: "초기 위치를 설정 중입니다.",
+  RunningState.mapReady: "지도 준비 중입니다.",
+  RunningState.selectDestination: "도착지를 선택해주세요.",
+  RunningState.generateRoute: "경로 생성 버튼을 눌러주세요.",
+  RunningState.startRunning: "달리기 시작을 눌러주세요.",
+  RunningState.running: "달리기 중입니다.",
+  RunningState.finished: "도착했습니다.",
+};
+
 class RunningScreen extends ConsumerStatefulWidget {
   static const String routeName = "RunningScreen";
   static const String routeUrl = "/running";
@@ -39,6 +49,9 @@ class _RunningScreenState extends ConsumerState<RunningScreen> {
 
   // Running 상태를 관리하는 enum 변수
   RunningState _currentState = RunningState.initialPosition;
+
+  // 초기 카운트 다운
+  final int _countDown = 3;
 
   @override
   void initState() {
@@ -59,6 +72,7 @@ class _RunningScreenState extends ConsumerState<RunningScreen> {
     final position = await getCurrentPosition();
     setState(() {
       _initialPosition = position;
+      _currentState = RunningState.mapReady;
     });
     _runningService.currentPosition = position;
   }
@@ -74,6 +88,9 @@ class _RunningScreenState extends ConsumerState<RunningScreen> {
     _runningService.mapController = controller;
     final NLocationOverlay locationOverlay = controller.getLocationOverlay();
     locationOverlay.setIsVisible(true);
+    setState(() {
+      _currentState = RunningState.selectDestination;
+    });
   }
 
   void _onMapTapped(NPoint point, NLatLng position) {
@@ -138,10 +155,11 @@ class _RunningScreenState extends ConsumerState<RunningScreen> {
   }
 
   void startRunning() {
-    _runningService.start();
     setState(() {
       _currentState = RunningState.running;
     });
+
+    _runningService.start();
   }
 
   @override
@@ -152,7 +170,6 @@ class _RunningScreenState extends ConsumerState<RunningScreen> {
       ),
       body: Stack(
         children: [
-          _buildPopup(_currentState),
           _initialPosition == null
               ? const Center(child: CircularProgressIndicator())
               : NaverMap(
@@ -166,6 +183,7 @@ class _RunningScreenState extends ConsumerState<RunningScreen> {
                   onMapTapped: _onMapTapped,
                 ),
           // 상태별로 다른 UI 구성
+          _buildPopup(_currentState),
           if (_currentState == RunningState.generateRoute)
             Positioned(
               bottom: 16,
@@ -186,27 +204,18 @@ class _RunningScreenState extends ConsumerState<RunningScreen> {
                 child: const Text("달리기 시작"),
               ),
             ),
-          Positioned(
-            top: 16,
-            right: 16,
-            child: LocationController(
-              onUp: _currentState == RunningState.running
-                  ? _runningService.moveUp
-                  : null,
-              onDown: _currentState == RunningState.running
-                  ? _runningService.moveDown
-                  : null,
-              onLeft: _currentState == RunningState.running
-                  ? _runningService.moveLeft
-                  : null,
-              onRight: _currentState == RunningState.running
-                  ? _runningService.moveRight
-                  : null,
-            ),
-          ),
-          if (_currentState == RunningState.running)
+          if (_currentState == RunningState.running) ...[
             Positioned(
-              bottom: 30,
+              top: 16,
+              right: 16,
+              child: LocationController(
+                  onUp: _runningService.moveUp,
+                  onDown: _runningService.moveDown,
+                  onLeft: _runningService.moveLeft,
+                  onRight: _runningService.moveRight),
+            ),
+            Positioned(
+              bottom: 16,
               right: 16,
               child: Container(
                 decoration: BoxDecoration(
@@ -221,6 +230,7 @@ class _RunningScreenState extends ConsumerState<RunningScreen> {
                     }),
               ),
             ),
+          ]
         ],
       ),
     );
@@ -229,28 +239,11 @@ class _RunningScreenState extends ConsumerState<RunningScreen> {
   Widget _buildPopup(RunningState state) {
     String message = "";
     log("state: $state");
-    switch (state) {
-      case RunningState.initialPosition:
-        message = "초기 위치를 설정 중입니다.";
-        break;
-      case RunningState.mapReady:
-        message = "지도 준비 중입니다.";
-        break;
-      case RunningState.selectDestination:
-        message = "도착지를 선택해주세요.";
-        break;
-      case RunningState.generateRoute:
-        message = "경로 생성 중입니다.";
-        break;
-      case RunningState.startRunning:
-        message = "달리기 시작을 눌러주세요.";
-        break;
-      case RunningState.running:
-        message = "달리기 중입니다.";
-        break;
-      case RunningState.finished:
-        message = "도착했습니다.";
-        break;
+    if (stateMessage.containsKey(state)) {
+      message = stateMessage[state]!;
+    }
+    if (state == RunningState.running) {
+      return const SizedBox();
     }
     return Positioned(
       top: 16,
