@@ -13,7 +13,7 @@ class RunningService {
   late NLatLng _currentPosition;
   late NaverMapController _mapController;
   final double step = 0.00005;
-  final double alertDistance = 60.0;
+  final double alertDistance = 100.0;
   final double arrivalThreshold = 10.0;
 
   int _nextPointIndex = 0;
@@ -21,6 +21,7 @@ class RunningService {
   final ValueNotifier<int> runningTimeNotifier = ValueNotifier(0);
   final ValueNotifier<double> nextPointAngleNotifier = ValueNotifier(0.0);
   final ValueNotifier<double> cameraAngleNotifier = ValueNotifier(0.0);
+  final ValueNotifier<bool> isAlertingNotifier = ValueNotifier(false);
   Timer? _timer;
 
   final List<NCircleOverlay> _circleOverlays = [];
@@ -75,6 +76,7 @@ class RunningService {
     await _updateCurrentPosition();
     await _rotateCameraNextPoint(0);
     _updateNextPointAngle();
+    _checkPointProximity();
   }
 
   void _setVisitedPoint(int index) {
@@ -166,7 +168,9 @@ class RunningService {
 
   void _onArriveNextPoint() {
     _setVisitedPoint(_nextPointIndex);
-
+    if (_nextPointIndex + 1 >= _routeData.routePoints.length) {
+      return;
+    }
     // 카메라 각도를 다음 경유지 방향으로 변경
     _nextPointIndex++;
     _rotateCameraNextPoint(_nextPointIndex);
@@ -189,11 +193,19 @@ class RunningService {
 
     if (distance <= arrivalThreshold) {
       _onArriveNextPoint();
+      isAlertingNotifier.value = false;
       // audioPlayer.play("경유지 도착 알림음 경로");
       return;
     }
+    bool isAlerting = isAlertingNotifier.value;
     if (distance <= alertDistance) {
+      // nextPoint가 마지막 도착지일때는 방향 알림음 재생하지 않음
+      if (_nextPointIndex + 1 < _routeData.routePoints.length) {
+        if (!isAlerting) isAlertingNotifier.value = true;
+      }
       // _playDirectionalAlert(nextPoint);
+    } else {
+      if (isAlerting) isAlertingNotifier.value = false;
     }
   }
 

@@ -294,26 +294,35 @@ class _RunningScreenState extends ConsumerState<RunningScreen> {
                       },
                       child: const Text("일시정지"),
                     ),
-                    ValueListenableBuilder<double>(
-                      valueListenable: _runningService.nextPointAngleNotifier,
-                      builder: (context, angle, child) {
-                        return Transform.rotate(
-                          angle: angle * pi / 180, // 각도에 따라 회전 적용
-                          child: const FaIcon(
-                            FontAwesomeIcons.arrowUp,
-                            color: Colors.red,
-                            size: 60,
-                            shadows: [
-                              Shadow(
-                                color: Colors.black,
-                                offset: Offset(2, 2),
-                                blurRadius: 2,
+                    ValueListenableBuilder(
+                      valueListenable: _runningService.isAlertingNotifier,
+                      builder: (context, value, child) {
+                        if (!value) {
+                          return const SizedBox();
+                        }
+                        return ValueListenableBuilder<double>(
+                          valueListenable:
+                              _runningService.nextPointAngleNotifier,
+                          builder: (context, angle, child) {
+                            return Transform.rotate(
+                              angle: angle * pi / 180, // 각도에 따라 회전 적용
+                              child: const FaIcon(
+                                FontAwesomeIcons.arrowUp,
+                                color: Colors.red,
+                                size: 60,
+                                shadows: [
+                                  Shadow(
+                                    color: Colors.black,
+                                    offset: Offset(2, 2),
+                                    blurRadius: 2,
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
+                            );
+                          },
                         );
                       },
-                    ),
+                    )
                   ],
                 ),
               ),
