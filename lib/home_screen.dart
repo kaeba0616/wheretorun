@@ -91,7 +91,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       onStartTap: () {
                         context.push(RunningScreen.routeUrl);
                       },
-                      onExitTap: () {},
+                      onExitTap: () {
+                        SystemNavigator.pop();
+                      },
                     ),
                     Gaps.v36,
                   ],

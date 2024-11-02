@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:wheretorun/features/naviagtion/models/route_data.dart';
 import 'package:wheretorun/features/naviagtion/models/route_point.dart';
+import 'package:wheretorun/utils.dart';
 
 class RunningService {
   late final AudioPlayer _audioPlayer;
@@ -164,8 +165,31 @@ class RunningService {
     // 3. 타이머 정지
 
     _timer?.cancel();
+    _alertTimer?.cancel();
+    _audioPlayer.stop();
     isFinishedNotifier.value = true;
-    _audioPlayer.play(AssetSource("assets/sounds/finish.mp3"));
+    _audioPlayer.play(AssetSource("sounds/finish.mp3"));
+    Future.delayed(const Duration(seconds: 1), () {});
+    _audioPlayer.stop();
+    _showFullRoute();
+  }
+
+  void _showFullRoute() {
+    final firstPoint = _routeData.routePoints.first;
+    final lastPoint = _routeData.routePoints.last;
+    final double distanceInMeters =
+        firstPoint.position.distanceTo(lastPoint.position);
+    double zoomLevel = calculateZoomLevel(distanceInMeters);
+    final middlePoint = NLatLng(
+      (firstPoint.position.latitude + lastPoint.position.latitude) / 2,
+      (firstPoint.position.longitude + lastPoint.position.longitude) / 2,
+    );
+    _mapController.updateCamera(
+      NCameraUpdate.withParams(
+        target: middlePoint,
+        zoom: zoomLevel,
+      ),
+    );
   }
 
   Future<void> _updateCurrentPosition() async {

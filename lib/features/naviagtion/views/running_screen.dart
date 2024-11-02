@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wheretorun/constants/sizes.dart';
 import 'package:wheretorun/features/naviagtion/models/route_line.dart';
 import 'package:wheretorun/features/naviagtion/models/route_point.dart';
@@ -193,6 +194,7 @@ class _RunningScreenState extends ConsumerState<RunningScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         title: const Text("Where to Run"),
         centerTitle: true,
         actions: [
@@ -412,6 +414,7 @@ class _RunningScreenState extends ConsumerState<RunningScreen> {
               ),
             ),
           ],
+
           // 달리기 종료 후, 결과 출력 및 나가기 버튼
           if (_currentState == RunningState.finished) ...[
             // runningService에서 결과들을 가져와서 보여준다.
