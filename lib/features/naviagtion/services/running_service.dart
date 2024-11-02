@@ -20,7 +20,7 @@ class RunningService {
   final ValueNotifier<int> remainDistanceNotifier = ValueNotifier(0);
   final ValueNotifier<int> runningTimeNotifier = ValueNotifier(0);
   final ValueNotifier<double> nextPointAngleNotifier = ValueNotifier(0.0);
-
+  final ValueNotifier<double> cameraAngleNotifier = ValueNotifier(0.0);
   Timer? _timer;
 
   final List<NCircleOverlay> _circleOverlays = [];
@@ -94,6 +94,7 @@ class RunningService {
       final prevPoint = _routeData.routePoints[index - 1];
       angle = _calculateBearing(prevPoint.position, nextPoint.position);
     }
+    cameraAngleNotifier.value = angle;
     await _mapController.updateCamera(
       NCameraUpdate.withParams(bearing: angle),
     );
@@ -130,7 +131,6 @@ class RunningService {
         _routeData.routePoints[_nextPointIndex + 1].position,
       );
       nextPointAngleNotifier.value = angle2 - angle1;
-      print("angle: ${nextPointAngleNotifier.value}");
     }
   }
 

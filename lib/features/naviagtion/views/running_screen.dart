@@ -210,6 +210,7 @@ class _RunningScreenState extends ConsumerState<RunningScreen> {
                 ),
           // 상태별로 다른 UI 구성
           _buildPopup(_currentState),
+
           if (_currentState == RunningState.generateRoute)
             Positioned(
               bottom: 16,
@@ -264,8 +265,16 @@ class _RunningScreenState extends ConsumerState<RunningScreen> {
               alignment: Alignment.bottomCenter,
               child: Padding(
                 padding: const EdgeInsets.only(bottom: 60),
-                child: LocationController(
-                  runningService: _runningService,
+                child: ValueListenableBuilder(
+                  valueListenable: _runningService.cameraAngleNotifier,
+                  builder: (context, angle, child) {
+                    return Transform.rotate(
+                      angle: -angle * pi / 180,
+                      child: LocationController(
+                        runningService: _runningService,
+                      ),
+                    );
+                  },
                 ),
               ),
             ),
