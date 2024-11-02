@@ -26,3 +26,18 @@ void showMessageDialog(
     },
   );
 }
+
+String getTimeString(double time) {
+  final hours = (time / 3600).floor();
+  final minutes = (time / 60).floor();
+  final seconds = (time % 60).toStringAsFixed(3);
+  String timeString = "";
+  if (hours > 0) {
+    timeString = "${hours}h ${minutes}m ${seconds.padLeft(5, '0')}s";
+  } else if (minutes > 0) {
+    timeString = "${minutes}m ${seconds.padLeft(5, '0')}s";
+  } else {
+    timeString = "${seconds.padLeft(5, '0')}초";
+  }
+  return timeString;
+}

@@ -76,7 +76,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                     Text(
-                      "달리기를 시작하세요!",
+                      "달리기 방향을 알려드립니다!",
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,

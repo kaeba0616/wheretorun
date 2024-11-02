@@ -18,13 +18,22 @@ class RunningService {
 
   int _nextPointIndex = 0;
   final ValueNotifier<int> remainDistanceNotifier = ValueNotifier(0);
-  final ValueNotifier<int> runningTimeNotifier = ValueNotifier(0);
+  final ValueNotifier<double> runningTimeNotifier = ValueNotifier(0.0);
   final ValueNotifier<double> nextPointAngleNotifier = ValueNotifier(0.0);
   final ValueNotifier<double> cameraAngleNotifier = ValueNotifier(0.0);
   final ValueNotifier<bool> isAlertingNotifier = ValueNotifier(false);
+  final ValueNotifier<bool> isFinishedNotifier = ValueNotifier(false);
+
+  bool _isRotating = false;
+
   Timer? _timer;
+  Timer? _alertTimer;
 
   final List<NCircleOverlay> _circleOverlays = [];
+
+  get totalDistance => _routeData.totalDistance;
+
+  get totalTime => runningTimeNotifier.value;
 
   set audioPlayer(AudioPlayer player) {
     _audioPlayer = player;
@@ -97,9 +106,11 @@ class RunningService {
       angle = _calculateBearing(prevPoint.position, nextPoint.position);
     }
     cameraAngleNotifier.value = angle;
+    _isRotating = true;
     await _mapController.updateCamera(
       NCameraUpdate.withParams(bearing: angle),
     );
+    _isRotating = false;
   }
 
   void _drawCircleOverlay(int index, Color color) {
@@ -116,8 +127,9 @@ class RunningService {
   }
 
   void _startTimer() {
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      runningTimeNotifier.value++;
+    // 타이머는 0.001초마다 실행
+    _timer = Timer.periodic(const Duration(milliseconds: 1), (timer) {
+      runningTimeNotifier.value += 0.001;
     });
   }
 
@@ -150,7 +162,10 @@ class RunningService {
     // 1. positionStream 구독 해제
     // 2. audioPlayer 정지
     // 3. 타이머 정지
+
     _timer?.cancel();
+    isFinishedNotifier.value = true;
+    _audioPlayer.play(AssetSource("assets/sounds/finish.mp3"));
   }
 
   Future<void> _updateCurrentPosition() async {
@@ -167,8 +182,12 @@ class RunningService {
   }
 
   void _onArriveNextPoint() {
+    isAlertingNotifier.value = false;
+    _alertTimer?.cancel();
     _setVisitedPoint(_nextPointIndex);
     if (_nextPointIndex + 1 >= _routeData.routePoints.length) {
+      // 도착지에 도착
+      stop();
       return;
     }
     // 카메라 각도를 다음 경유지 방향으로 변경
@@ -193,7 +212,7 @@ class RunningService {
 
     if (distance <= arrivalThreshold) {
       _onArriveNextPoint();
-      isAlertingNotifier.value = false;
+
       // audioPlayer.play("경유지 도착 알림음 경로");
       return;
     }
@@ -201,9 +220,11 @@ class RunningService {
     if (distance <= alertDistance) {
       // nextPoint가 마지막 도착지일때는 방향 알림음 재생하지 않음
       if (_nextPointIndex + 1 < _routeData.routePoints.length) {
-        if (!isAlerting) isAlertingNotifier.value = true;
+        if (!isAlerting) {
+          isAlertingNotifier.value = true;
+          _playDirectionalAlert(nextPoint);
+        }
       }
-      // _playDirectionalAlert(nextPoint);
     } else {
       if (isAlerting) isAlertingNotifier.value = false;
     }
@@ -212,20 +233,28 @@ class RunningService {
   void _playDirectionalAlert(RoutePoint nextPoint) {
     // 다음 경유지의 방향에 따라 그 각도로, 알림음 방향을 조절하여 재생
     // 각도는 다음처럼 계산: 이전 점과 nextPoint, nextPoint와 다음 점, 두 선의 각도
-
-    if (_nextPointIndex + 1 >= _routeData.routePoints.length) {
-      return;
+    double angle = nextPointAngleNotifier.value;
+    angle = (angle + 360) % 360;
+    double balance = 0;
+    if (angle >= 0 && angle <= 90) {
+      balance = angle / 90;
+    } else if (angle > 90 && angle <= 180) {
+      balance = (180 - angle) / 90;
+    } else if (angle > 180 && angle <= 270) {
+      balance = (180 - angle) / 90;
+    } else if (angle > 270 && angle <= 360) {
+      balance = (angle - 360) / 90;
     }
-    final prevPoint = _routeData.routePoints[_nextPointIndex - 1];
-    final nextNextPoint = _routeData.routePoints[_nextPointIndex + 1];
-    final bearing1 = _calculateBearing(prevPoint.position, nextPoint.position);
-    final bearing2 =
-        _calculateBearing(nextPoint.position, nextNextPoint.position);
-    final angle = bearing1 - bearing2;
+    _audioPlayer.setBalance(balance);
 
-    _audioPlayer.setBalance(angle / 180);
-    developer.log("angle: $angle");
-    _audioPlayer.play(AssetSource("sounds/beep.mp3"));
+    // 1초 간격으로 알림음 재생
+    _alertTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      _audioPlayer.resume();
+      Future.delayed(const Duration(milliseconds: 200), () {
+        _audioPlayer.pause();
+      });
+      _audioPlayer.seek(const Duration());
+    });
   }
 
   double _calculateBearing(NLatLng from, NLatLng to) {
@@ -243,6 +272,7 @@ class RunningService {
   }
 
   void _move(double distLat, double distLng) {
+    if (_isRotating) return;
     currentPosition = NLatLng(
       _currentPosition.latitude + distLat,
       _currentPosition.longitude + distLng,

@@ -173,6 +173,7 @@ class _RunningScreenState extends ConsumerState<RunningScreen> {
 
   void _startCountdown() {
     _countdown.value = 3;
+    _audioPlayer.play(AssetSource("sounds/race-start.mp3"));
     Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_countdown.value == 0) {
         timer.cancel();
@@ -180,6 +181,8 @@ class _RunningScreenState extends ConsumerState<RunningScreen> {
         setState(() {
           _currentState = RunningState.running;
         });
+        _audioPlayer.setSource(AssetSource("sounds/beep.mp3"));
+        _audioPlayer.pause();
       } else {
         _countdown.value--;
       }
@@ -191,26 +194,57 @@ class _RunningScreenState extends ConsumerState<RunningScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Where to Run"),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.volume_up),
+            onPressed: () {
+              _audioPlayer.resume();
+              Future.delayed(const Duration(milliseconds: 200), () {
+                _audioPlayer.pause();
+              });
+              _audioPlayer.seek(const Duration());
+            },
+          ),
+        ],
       ),
       body: Stack(
         children: [
           // 테스트용 버튼
-
           _initialPosition == null
               ? const Center(child: CircularProgressIndicator())
-              : NaverMap(
-                  options: NaverMapViewOptions(
-                    initialCameraPosition: NCameraPosition(
-                      target: _initialPosition!,
-                      zoom: 16,
-                    ),
+              : Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: ValueListenableBuilder(
+                    valueListenable: _runningService.isFinishedNotifier,
+                    builder: (context, value, child) {
+                      if (value == true) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          setState(() {
+                            _currentState = RunningState.finished;
+                          });
+                        });
+                      }
+                      return Padding(
+                        padding: value
+                            ? const EdgeInsets.only(bottom: 200)
+                            : EdgeInsets.zero,
+                        child: NaverMap(
+                          options: NaverMapViewOptions(
+                            initialCameraPosition: NCameraPosition(
+                              target: _initialPosition!,
+                              zoom: 16,
+                            ),
+                          ),
+                          onMapReady: _onMapReady,
+                          onMapTapped: _onMapTapped,
+                        ),
+                      );
+                    },
                   ),
-                  onMapReady: _onMapReady,
-                  onMapTapped: _onMapTapped,
                 ),
           // 상태별로 다른 UI 구성
           _buildPopup(_currentState),
-
           if (_currentState == RunningState.generateRoute)
             Positioned(
               bottom: 16,
@@ -232,6 +266,7 @@ class _RunningScreenState extends ConsumerState<RunningScreen> {
               ),
             ),
           if (_currentState == RunningState.countdown) _buildCountdown(),
+          if (_currentState == RunningState.finished) _buildFinishWidget(),
           if (_currentState == RunningState.paused) ...[
             Align(
               alignment: Alignment.center,
@@ -245,7 +280,7 @@ class _RunningScreenState extends ConsumerState<RunningScreen> {
                         _currentState = RunningState.running;
                       });
                     },
-                    child: const Text("다시 시작"),
+                    child: const Text("달리기 재개"),
                   ),
                   ElevatedButton(
                     onPressed: () {
@@ -330,42 +365,49 @@ class _RunningScreenState extends ConsumerState<RunningScreen> {
           ],
           if (_currentState == RunningState.running ||
               _currentState == RunningState.paused) ...[
-            Positioned(
-              bottom: 16,
-              right: 16,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.grey,
-                  borderRadius: BorderRadius.circular(8),
+            Align(
+              alignment: Alignment.topCenter,
+              child: Padding(
+                padding: const EdgeInsets.only(
+                  top: 70,
+                  left: 16,
+                  right: 16,
                 ),
-                padding: const EdgeInsets.all(8),
-                child: ValueListenableBuilder(
-                    valueListenable: _runningService.remainDistanceNotifier,
-                    builder: (context, value, child) {
-                      return Text("남은 거리: ${value.toStringAsFixed(2)}m");
-                    }),
-              ),
-            ),
-            // 달리기 타이머
-            Positioned(
-              bottom: 30,
-              left: 16,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.grey,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                padding: const EdgeInsets.all(8),
-                child: ValueListenableBuilder<int>(
-                  valueListenable: _runningService.runningTimeNotifier,
-                  builder: (context, time, child) {
-                    final minutes = (time / 60).floor();
-                    final seconds = time % 60;
-                    return Text(
-                      "달린 시간: ${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}",
-                      style: const TextStyle(color: Colors.white, fontSize: 16),
-                    );
-                  },
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.grey,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      padding: const EdgeInsets.all(8),
+                      child: ValueListenableBuilder(
+                          valueListenable:
+                              _runningService.remainDistanceNotifier,
+                          builder: (context, value, child) {
+                            return Text("남은 거리\n${value.toStringAsFixed(2)}m");
+                          }),
+                    ),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.grey,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      padding: const EdgeInsets.all(8),
+                      child: ValueListenableBuilder<double>(
+                        valueListenable: _runningService.runningTimeNotifier,
+                        builder: (context, time, child) {
+                          final timeString = getTimeString(time);
+                          return Text(
+                            "달린 시간\n$timeString",
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 15),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -415,6 +457,47 @@ class _RunningScreenState extends ConsumerState<RunningScreen> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildFinishWidget() {
+    const textStyle = TextStyle(
+      fontSize: 25,
+      color: Colors.white,
+    );
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 70),
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 50,
+            vertical: 10,
+          ),
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.6),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                "총거리: ${_runningService.totalDistance}m",
+                style: textStyle,
+              ),
+              Text(
+                "소요시간: ${getTimeString(_runningService.totalTime)}",
+                style: textStyle,
+              ),
+              // km/h로 변환하여 보여준다.
+              Text(
+                "평균속도: ${(_runningService.totalDistance / _runningService.totalTime * 3.6).toStringAsFixed(2)} km/h",
+                style: textStyle,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

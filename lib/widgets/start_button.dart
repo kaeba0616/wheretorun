@@ -41,8 +41,8 @@ class _HomeButtonState extends State<HomeButton> {
           duration: const Duration(milliseconds: 150),
           decoration: BoxDecoration(
             color: _isPressed
-                ? Colors.green.shade600
-                : Colors.green.shade300.withOpacity(0.5),
+                ? Colors.grey.shade600
+                : Colors.grey.shade300.withOpacity(0.5),
             borderRadius: BorderRadius.circular(
               Sizes.size5,
             ),
