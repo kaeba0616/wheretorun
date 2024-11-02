@@ -16,7 +16,7 @@ class RunningService {
   final double alertDistance = 60.0;
   final double arrivalThreshold = 10.0;
 
-  int _nextPointIndex = 1;
+  int _nextPointIndex = 0;
   final ValueNotifier<int> remainDistanceNotifier = ValueNotifier(0);
   final ValueNotifier<int> runningTimeNotifier = ValueNotifier(0);
   final ValueNotifier<double> nextPointAngleNotifier = ValueNotifier(0.0);
@@ -52,7 +52,7 @@ class RunningService {
     _mapController = controller;
   }
 
-  void start() {
+  void start() async {
     // 1. positionStream을 구독하여 위치 정보 업데이트 (임시로 우리는 move 함수로 위치를 이동시킴)
 
     // 2. routeData를 이용하여, 현재 위치와 다음 경유지 사이의 거리를 계산
@@ -71,20 +71,32 @@ class RunningService {
     // 5. 다음 경유지에 도착시 remainDistance를 갱신
 
     _startTimer();
-    _updateCurrentPosition();
+    _setVisitedPoint(-1);
+    await _updateCurrentPosition();
+    await _rotateCameraNextPoint(0);
     _updateNextPointAngle();
-    _setVisitedPoint(0);
   }
 
   void _setVisitedPoint(int index) {
     // 지나간 경유지를 표시하기 위해, 지나간 경유지는 초록색으로 표시
-    _drawCircleOverlay(index, Colors.green);
-    if (index + 1 >= _routeData.routePoints.length) {
-      // 마지막 경유지에 도착
-      return;
+    if (index >= 0) _drawCircleOverlay(index, Colors.green);
+    if (index + 1 < _circleOverlays.length) {
+      _drawCircleOverlay(index + 1, Colors.red);
     }
-    // 다음 경유지는 빨간색으로 표시
-    _drawCircleOverlay(index + 1, Colors.red);
+  }
+
+  Future<void> _rotateCameraNextPoint(int index) async {
+    double angle = 0;
+    final nextPoint = _routeData.routePoints[index];
+    if (index == 0) {
+      angle = _calculateBearing(_currentPosition, nextPoint.position);
+    } else {
+      final prevPoint = _routeData.routePoints[index - 1];
+      angle = _calculateBearing(prevPoint.position, nextPoint.position);
+    }
+    await _mapController.updateCamera(
+      NCameraUpdate.withParams(bearing: angle),
+    );
   }
 
   void _drawCircleOverlay(int index, Color color) {
@@ -107,11 +119,18 @@ class RunningService {
   }
 
   void _updateNextPointAngle() {
+    if (_nextPointIndex + 1 >= _routeData.routePoints.length) {
+      return;
+    }
     if (_nextPointIndex < _routeData.routePoints.length) {
       final nextPoint = _routeData.routePoints[_nextPointIndex];
-      final angle = _calculateBearing(_currentPosition, nextPoint.position);
-      nextPointAngleNotifier.value = angle;
-      print("angle: $angle");
+      final angle1 = _calculateBearing(_currentPosition, nextPoint.position);
+      final angle2 = _calculateBearing(
+        nextPoint.position,
+        _routeData.routePoints[_nextPointIndex + 1].position,
+      );
+      nextPointAngleNotifier.value = angle2 - angle1;
+      print("angle: ${nextPointAngleNotifier.value}");
     }
   }
 
@@ -132,27 +151,26 @@ class RunningService {
     _timer?.cancel();
   }
 
-  void _updateCurrentPosition() {
+  Future<void> _updateCurrentPosition() async {
     // 현재 위치를 업데이트하고, 지도에 위치 오버레이를 업데이트
     final NLocationOverlay locationOverlay =
         _mapController.getLocationOverlay();
     locationOverlay.setPosition(_currentPosition);
-    _mapController.updateCamera(
+    await _mapController.updateCamera(
       NCameraUpdate.withParams(
         target: _currentPosition,
+        zoom: 16,
       ),
     );
   }
 
   void _onArriveNextPoint() {
     _setVisitedPoint(_nextPointIndex);
-    // 카메라 각도를 다음 경유지 방향으로 설정
-    _mapController.updateCamera(
-      NCameraUpdate.withParams(
-        bearing: nextPointAngleNotifier.value,
-      ),
-    );
+
+    // 카메라 각도를 다음 경유지 방향으로 변경
     _nextPointIndex++;
+    _rotateCameraNextPoint(_nextPointIndex);
+    _updateNextPointAngle();
   }
 
   void _checkPointProximity() {

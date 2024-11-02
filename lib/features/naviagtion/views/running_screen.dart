@@ -194,6 +194,8 @@ class _RunningScreenState extends ConsumerState<RunningScreen> {
       ),
       body: Stack(
         children: [
+          // 테스트용 버튼
+
           _initialPosition == null
               ? const Center(child: CircularProgressIndicator())
               : NaverMap(
